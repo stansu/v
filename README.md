@@ -84,5 +84,17 @@ MIT
 ## 疑難排解
 
 - **`This video is unavailable`**：先確認影片本身還在。若影片正常，多半是缺 JS runtime —— yt-dlp 2025+ 解 YouTube 的 JS challenge 需要 deno 或 node，本機請 `apt install nodejs` 或裝 deno，Actions 上 runner 內建 node 沒問題。
-- **`Sign in to confirm you're not a bot`**：YouTube 擋資料中心 IP，設定 `YTDLP_COOKIES` secret，或換個時間重試。
+- **`Sign in to confirm you're not a bot`**：YouTube 擋資料中心 IP。實測 8 種 `player_client`（default / android_vr / mweb / ios / tv_embedded / web_embedded / tv_simply / web）全部被擋，**只能靠 cookies**。見下方〈YouTube 需要 cookies〉。
 - **下載到一半失敗**：看 Actions 的 run 日誌，通常是單一格式無法取得，換個畫質再試。
+
+## YouTube 需要 cookies（實測結論）
+
+GitHub 的 runner IP 會被 YouTube 當成 bot，沒有登入 cookie 一律失敗。做法：
+
+1. 手機裝 **Kiwi Browser**（支援 Chrome 擴充）。
+2. 裝擴充 **Get cookies.txt LOCALLY**。
+3. 在 Kiwi 登入 `youtube.com`，在 youtube.com 頁面按擴充 → Export，得到 Netscape 格式內容。
+4. GitHub repo → Settings → Secrets and variables → Actions → **New repository secret**，名稱 `YTDLP_COOKIES`，值貼上整份內容。
+5. 重新按一次下載。cookies 幾週到幾個月會過期，失效就重匯。
+
+⚠️ cookies 等於你 YouTube 帳號的登入憑證，只放在 repo secret 裡，別貼進 issue 或截圖。

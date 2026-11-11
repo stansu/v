@@ -361,7 +361,8 @@
             ${t.status === 'success' && t.artifact
               ? `<button class="btn btn-sm btn-primary" data-act="save">下載 zip</button>` : ''}
             ${(t.status === 'failure' || t.status === 'error')
-              ? `<button class="btn btn-sm" data-act="retry">重新觸發</button>` : ''}
+              ? `<a class="meta" href="https://github.com/${t.owner}/${t.repo}#疑難排解" target="_blank" rel="noopener">疑難排解</a>
+                 <button class="btn btn-sm" data-act="retry">重新觸發</button>` : ''}
           </div>
         </li>`;
     }).join('');
