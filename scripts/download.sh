@@ -30,6 +30,16 @@ mkdir -p out
 args=(--no-warnings --newline --no-mtime
       --output "out/%(title).120s.%(ext)s")
 
+# yt-dlp 2025+ 解 YouTube 的 JS challenge 需要 JS runtime（預設只認 deno）。
+# GitHub runner 一定有 node；本機沒 node 就裝 deno，否則部分影片會解析失敗。
+if command -v node >/dev/null 2>&1; then
+  args+=(--js-runtimes node)
+elif command -v deno >/dev/null 2>&1; then
+  args+=(--js-runtimes deno)
+else
+  echo "警告：找不到 node/deno，YouTube 解析可能失敗" >&2
+fi
+
 if [[ "$playlist" == "yes" ]]; then
   args+=(--yes-playlist)
 else

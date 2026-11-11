@@ -80,3 +80,9 @@ scripts/download.sh       # yt-dlp 參數組裝
 ## 授權
 
 MIT
+
+## 疑難排解
+
+- **`This video is unavailable`**：先確認影片本身還在。若影片正常，多半是缺 JS runtime —— yt-dlp 2025+ 解 YouTube 的 JS challenge 需要 deno 或 node，本機請 `apt install nodejs` 或裝 deno，Actions 上 runner 內建 node 沒問題。
+- **`Sign in to confirm you're not a bot`**：YouTube 擋資料中心 IP，設定 `YTDLP_COOKIES` secret，或換個時間重試。
+- **下載到一半失敗**：看 Actions 的 run 日誌，通常是單一格式無法取得，換個畫質再試。
