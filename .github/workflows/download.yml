@@ -85,9 +85,12 @@ jobs:
         run: |
           set -euo pipefail
           # Ubuntu 24.04 的系統 Python 受 PEP 668 保護，失敗時改用 --break-system-packages
-          python3 -m pip install --upgrade --quiet "yt-dlp[default]" \
-            || python3 -m pip install --upgrade --quiet --break-system-packages "yt-dlp[default]"
+          # curl_cffi = yt-dlp 的 impersonation 後端：TikTok 等站在資料中心 IP 上
+          # 沒有它會直接被擋（實測：沒裝失敗、裝了成功）
+          python3 -m pip install --upgrade --quiet "yt-dlp[default]" curl_cffi \
+            || python3 -m pip install --upgrade --quiet --break-system-packages "yt-dlp[default]" curl_cffi
           yt-dlp --version || python3 -m yt_dlp --version
+          python3 -c "import curl_cffi; print('curl_cffi', curl_cffi.__version__)" || true
           if ! command -v ffmpeg >/dev/null 2>&1; then
             sudo apt-get update -qq
             sudo apt-get install -y -qq ffmpeg

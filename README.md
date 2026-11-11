@@ -63,7 +63,7 @@ INPUT_URL='https://www.youtube.com/watch?v=…' INPUT_MODE=video INPUT_QUALITY=1
 - **時長**：`timeout-minutes: 40`，超過就失敗。
 - **隱私**：公開 repo 的話，你的下載網址會出現在 Actions run 名稱裡（任何人可見）。要低調就把 repo 設為 private（private repo 的 Actions 會吃免費額度，公開 repo 不限）。
 - **額度**：公開 repo 的 Actions 免費；private repo 每月 2000 分鐘（免費方案）。
-- **特定網站**：YouTube 偶爾會擋資料中心的 IP，失敗時看日誌；抖音/IG 幾乎一定需要 cookies。
+- **特定網站**：實測結果見下方〈各站實測〉。YouTube 一定需要 cookies；TikTok 靠 `curl_cffi` 就能通過。
 - **合規**：只下載你有權取得的內容，遵守平台條款與當地著作權法。
 
 ## 檔案結構
@@ -98,3 +98,12 @@ GitHub 的 runner IP 會被 YouTube 當成 bot，沒有登入 cookie 一律失�
 5. 重新按一次下載。cookies 幾週到幾個月會過期，失效就重匯。
 
 ⚠️ cookies 等於你 YouTube 帳號的登入憑證，只放在 repo secret 裡，別貼進 issue 或截圖。
+
+## 各站實測（GitHub runner，2026-11）
+
+| 站 | 結果 | 備註 |
+| --- | --- | --- |
+| 直連 mp4 / 一般網站 | ✅ 可用 | 第一支測試影片 774 KB |
+| TikTok | ✅ 可用 | 需 `curl_cffi`（workflow 已自動安裝）。沒裝時報 `Unexpected response from webpage request` |
+| YouTube | ❌ 需要 cookies | 8 種 player_client + curl_cffi 全部被擋，見〈YouTube 需要 cookies〉 |
+| Bilibili / IG | 未測 | IG 預期也需要 cookies |
