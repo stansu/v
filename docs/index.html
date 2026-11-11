@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<title>影片下載器 · GitHub Actions</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%AC%87%EF%B8%8F%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">⬇</span>
+    <div>
+      <h1>影片下載器</h1>
+      <p class="sub">由 GitHub Actions 執行 yt-dlp</p>
+    </div>
+  </div>
+  <button id="settingsToggle" class="icon-btn" aria-expanded="false" aria-controls="settingsPanel" title="設定">
+    <span aria-hidden="true">⚙</span><span class="sr-only">設定</span>
+  </button>
+</header>
+
+<main>
+  <!-- 設定 -->
+  <section id="settingsPanel" class="card settings" hidden>
+    <div class="card-head">
+      <h2>連線設定</h2>
+      <span id="connState" class="pill pill-muted">未設定</span>
+    </div>
+
+    <label class="field">
+      <span>GitHub 使用者 / 組織</span>
+      <input id="owner" type="text" autocomplete="off" spellcheck="false" placeholder="your-name">
+    </label>
+
+    <label class="field">
+      <span>Repo 名稱</span>
+      <input id="repo" type="text" autocomplete="off" spellcheck="false" placeholder="video-downloader">
+    </label>
+
+    <label class="field">
+      <span>Fine-grained token</span>
+      <input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…">
+      <small>只勾選這個 repo 的 <b>Actions: Read and write</b>；存在本機 localStorage，不會上傳到別處。</small>
+    </label>
+
+    <details class="advanced">
+      <summary>進階</summary>
+      <div class="grid2">
+        <label class="field">
+          <span>分支</span>
+          <input id="branch" type="text" autocomplete="off" spellcheck="false" value="main">
+        </label>
+        <label class="field">
+          <span>Workflow 檔名</span>
+          <input id="workflow" type="text" autocomplete="off" spellcheck="false" value="download.yml">
+        </label>
+      </div>
+    </details>
+
+    <div class="row">
+      <button id="saveSettings" class="btn btn-primary">儲存</button>
+      <button id="testConn" class="btn">測試連線</button>
+      <button id="clearToken" class="btn btn-ghost">清除 token</button>
+    </div>
+    <p id="settingsMsg" class="msg" role="status"></p>
+  </section>
+
+  <!-- 建立任務 -->
+  <section class="card">
+    <label class="field">
+      <span>影片網址（一行一個，可貼多個）</span>
+      <textarea id="urls" rows="3" spellcheck="false" placeholder="https://www.youtube.com/watch?v=…&#10;https://www.bilibili.com/video/BV…"></textarea>
+    </label>
+
+    <div class="grid2">
+      <label class="field">
+        <span>模式</span>
+        <select id="mode">
+          <option value="video">影片（mp4）</option>
+          <option value="audio">只取音訊（mp3）</option>
+        </select>
+      </label>
+      <label class="field" id="qualityField">
+        <span>最高畫質</span>
+        <select id="quality">
+          <option value="best">最佳</option>
+          <option value="2160">2160p / 4K</option>
+          <option value="1440">1440p / 2K</option>
+          <option value="1080" selected>1080p</option>
+          <option value="720">720p</option>
+          <option value="480">480p</option>
+          <option value="360">360p</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="checks">
+      <label class="check"><input id="subs" type="checkbox"><span>下載字幕（轉 srt）</span></label>
+      <label class="check"><input id="playlist" type="checkbox"><span>下載整個播放清單</span></label>
+    </div>
+
+    <button id="start" class="btn btn-primary btn-block">開始下載</button>
+    <p class="hint">任務在 GitHub 的機器上跑，通常 1–3 分鐘；完成後檔案是 zip，保留 1 天。</p>
+  </section>
+
+  <!-- 任務 -->
+  <section class="card" id="tasksCard" hidden>
+    <div class="card-head">
+      <h2>任務</h2>
+      <button id="clearDone" class="btn btn-ghost btn-sm">清除已完成</button>
+    </div>
+    <ul id="tasks" class="tasks"></ul>
+  </section>
+
+  <p class="foot">
+    只下載你有權取得的內容；請遵守各平台條款與當地著作權法。
+    <a href="#" id="howto">怎麼設定？</a>
+  </p>
+</main>
+
+<!-- 說明 -->
+<dialog id="howtoDialog" class="dialog">
+  <div class="card-head">
+    <h2>設定步驟</h2>
+    <button id="howtoClose" class="icon-btn" aria-label="關閉">✕</button>
+  </div>
+  <ol class="steps">
+    <li>Fork 這個 repo，或把整個專案推到你自己的帳號。</li>
+    <li>Repo → Settings → Pages → Source 選 <code>Deploy from a branch</code>，資料夾挑 <code>/docs</code>。</li>
+    <li>Settings → Actions → General → 確認 Actions 允許執行。</li>
+    <li>個人頭像 → Settings → Developer settings → Personal access tokens → <b>Fine-grained tokens</b> → Generate new token：只選這個 repo，權限給 <b>Actions: Read and write</b>。</li>
+    <li>回到本頁，把 owner、repo、token 填進「連線設定」，按「測試連線」。</li>
+  </ol>
+  <p class="hint">Token 有風險：拿到它的人可以觸發這個 repo 的 workflow。用完可按「清除 token」，或到 GitHub 撤銷。</p>
+</dialog>
+
+<div id="toast" class="toast" role="alert" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>

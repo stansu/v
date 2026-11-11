@@ -1,0 +1,143 @@
+name: download
+
+# 由 GitHub Pages 前端透過 REST API 觸發（workflow_dispatch）。
+# 也可以在 Actions 頁面手動 Run workflow。
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: '影片網址（單一連結）'
+        required: true
+        type: string
+      mode:
+        description: '下載模式：video = 影片，audio = 只取音訊 mp3'
+        required: true
+        default: video
+        type: choice
+        options: [video, audio]
+      quality:
+        description: '影片最高解析度（audio 模式忽略）'
+        required: true
+        default: '1080'
+        type: choice
+        options: ['2160', '1440', '1080', '720', '480', '360', 'best']
+      subtitles:
+        description: '一併下載字幕（自動轉 srt）'
+        required: true
+        default: 'no'
+        type: choice
+        options: ['no', 'yes']
+      playlist:
+        description: '下載整個播放清單（預設只下單片）'
+        required: true
+        default: 'no'
+        type: choice
+        options: ['no', 'yes']
+
+permissions:
+  contents: read
+
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: 驗證網址
+        shell: bash
+        env:
+          INPUT_URL: ${{ inputs.url }}
+          # 選用：在 repo 的 Settings → Secrets and variables → Actions → Variables
+          # 設 ALLOWED_HOSTS=youtube.com,bilibili.com 就只允許這些網域
+          ALLOWED_HOSTS: ${{ vars.ALLOWED_HOSTS }}
+        run: |
+          set -euo pipefail
+          python3 - "$INPUT_URL" <<'PY'
+          import sys, os
+          url = sys.argv[1].strip()
+          if not url:
+              sys.exit("連結是空的")
+          if len(url) > 2000:
+              sys.exit("連結太長")
+          from urllib.parse import urlparse
+          p = urlparse(url)
+          if p.scheme not in ("http", "https"):
+              sys.exit(f"只接受 http/https 連結，收到 scheme={p.scheme!r}")
+          if not p.hostname:
+              sys.exit("連結缺少主機名稱")
+          # 可選白名單：在 repo 設定 Variables 加 ALLOWED_HOSTS="youtube.com,bilibili.com"
+          allow = os.environ.get("ALLOWED_HOSTS", "").strip()
+          if allow:
+              hosts = [h.strip().lower() for h in allow.split(",") if h.strip()]
+              h = p.hostname.lower()
+              if not any(h == a or h.endswith("." + a) for a in hosts):
+                  sys.exit(f"主機 {h} 不在允許清單內")
+          print(f"OK: {url}")
+          PY
+
+      - name: 取得 workflow 腳本
+        uses: actions/checkout@v4
+
+      - name: 安裝 yt-dlp 與 ffmpeg
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Ubuntu 24.04 的系統 Python 受 PEP 668 保護，失敗時改用 --break-system-packages
+          python3 -m pip install --upgrade --quiet "yt-dlp[default]" \
+            || python3 -m pip install --upgrade --quiet --break-system-packages "yt-dlp[default]"
+          yt-dlp --version || python3 -m yt_dlp --version
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq ffmpeg
+          fi
+          ffmpeg -version | head -1
+
+      - name: 下載
+        shell: bash
+        env:
+          INPUT_URL: ${{ inputs.url }}
+          INPUT_MODE: ${{ inputs.mode }}
+          INPUT_QUALITY: ${{ inputs.quality }}
+          INPUT_SUBS: ${{ inputs.subtitles }}
+          INPUT_PLAYLIST: ${{ inputs.playlist }}
+          YTDLP_COOKIES: ${{ secrets.YTDLP_COOKIES }}
+        run: bash scripts/download.sh
+
+      - name: 摘要
+        if: always()
+        shell: bash
+        env:
+          INPUT_URL: ${{ inputs.url }}
+          INPUT_MODE: ${{ inputs.mode }}
+          INPUT_QUALITY: ${{ inputs.quality }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "### 下載結果"
+            echo ""
+            echo "- 網址：$INPUT_URL"
+            echo "- 模式：$INPUT_MODE / 最高 $INPUT_QUALITY p"
+            echo "- 狀態：$JOB_STATUS"
+            echo ""
+            if [ -d out ] && [ -n "$(ls -A out 2>/dev/null)" ]; then
+              echo "| 檔案 | 大小 |"
+              echo "| --- | --- |"
+              find out -type f -printf '%P\t%s\n' | while IFS=$'\t' read -r name size; do
+                echo "| $name | $(numfmt --to=iec "$size") |"
+              done
+            else
+              echo "沒有產出檔案，請看上面的日誌。"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 上傳產出物
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: download-${{ github.run_id }}
+          path: out/
+          if-no-files-found: error
+          # 只保留 1 天：降低外流與濫用風險，也省儲存空間
+          retention-days: 1
