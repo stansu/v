@@ -16,6 +16,7 @@ jobs:
       - name: 測各種 client
         shell: bash
         run: |
+          set +e
           python3 -m pip install --upgrade --quiet "yt-dlp[default]" \
             || python3 -m pip install --upgrade --quiet --break-system-packages "yt-dlp[default]"
           yt-dlp --version
